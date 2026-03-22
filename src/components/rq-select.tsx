@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
+import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  Loader2Icon,
+  SearchIcon,
+} from "lucide-react";
 import debounce from "lodash.debounce";
 import { cn } from "../lib/cn";
-import { ScrollArea } from "./scroll-area";
-import { Spinner } from "./spinner";
 import type { RQSelectOption, RQSelectProps } from "./types";
 
 const EMPTY_DEPS: unknown[] = [];
@@ -36,9 +40,8 @@ function RQSelect({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [sentinelNode, setSentinelNode] = useState<HTMLDivElement | null>(null);
-  const hasBeenOpened = useRef(false);
+  const [hasBeenOpened, setHasBeenOpened] = useState(false);
   const initialValueApplied = useRef(false);
-  const isFetchingNextPageRef = useRef(false);
 
   const debouncedSetSearch = useMemo(
     () => debounce((val: string) => setDebouncedSearch(val), searchDebounceMs),
@@ -58,11 +61,12 @@ function RQSelect({
     [debouncedSetSearch],
   );
 
-  const optionsEnabled = fetchOnOpen ? hasBeenOpened.current : true;
+  const optionsEnabled = fetchOnOpen ? hasBeenOpened : true;
 
   const optionsQuery = useInfiniteQuery({
     queryKey: ["rq-select", queryKey, ...deps, debouncedSearch],
-    queryFn: ({ pageParam }) => fetcher({ search: debouncedSearch, page: pageParam }),
+    queryFn: ({ pageParam }) =>
+      fetcher({ search: debouncedSearch, page: pageParam }),
     initialPageParam: 1,
     getNextPageParam: (lastPage, _allPages, lastPageParam) =>
       lastPage.hasMore ? lastPageParam + 1 : undefined,
@@ -72,7 +76,8 @@ function RQSelect({
     refetchOnWindowFocus: false,
   });
 
-  const shouldFetchInitialValue = !!initialValueId && !!initialValueFetcher && !value;
+  const shouldFetchInitialValue =
+    !!initialValueId && !!initialValueFetcher && !value;
   const initialValueQuery = useQuery({
     queryKey: ["rq-select-initial", queryKey, initialValueId],
     queryFn: () => initialValueFetcher!(initialValueId!),
@@ -83,19 +88,20 @@ function RQSelect({
   });
 
   const { hasNextPage, fetchNextPage } = optionsQuery;
-  isFetchingNextPageRef.current = optionsQuery.isFetchingNextPage;
+
+  const pages = optionsQuery.data?.pages;
 
   const options = useMemo(() => {
-    if (!optionsQuery.data?.pages) return [];
-    return optionsQuery.data.pages.flatMap(page => page.options).filter(opt => !opt.hidden);
-  }, [optionsQuery.data?.pages]);
+    if (!pages) return [];
+    return pages.flatMap((page) => page.options).filter((opt) => !opt.hidden);
+  }, [pages]);
 
   useEffect(() => {
     if (!sentinelNode) return;
 
     const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0]?.isIntersecting && !isFetchingNextPageRef.current) {
+      (entries) => {
+        if (entries[0]?.isIntersecting && !optionsQuery.isFetchingNextPage) {
           fetchNextPage();
         }
       },
@@ -104,7 +110,12 @@ function RQSelect({
 
     observer.observe(sentinelNode);
     return () => observer.disconnect();
-  }, [sentinelNode, hasNextPage, fetchNextPage]);
+  }, [
+    sentinelNode,
+    hasNextPage,
+    fetchNextPage,
+    optionsQuery.isFetchingNextPage,
+  ]);
 
   useEffect(() => {
     if (initialValueQuery.data && !initialValueApplied.current) {
@@ -128,14 +139,14 @@ function RQSelect({
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (disabled || readOnly) return;
-      if (nextOpen) hasBeenOpened.current = true;
+      if (nextOpen && !hasBeenOpened) setHasBeenOpened(true);
       setOpen(nextOpen);
       if (!nextOpen) {
         setSearch("");
         debouncedSetSearch("");
       }
     },
-    [disabled, readOnly, debouncedSetSearch],
+    [disabled, readOnly, hasBeenOpened, debouncedSetSearch],
   );
 
   const isInitialLoading = optionsQuery.isLoading;
@@ -149,12 +160,13 @@ function RQSelect({
       <div
         key={option.value}
         role="option"
+        data-slot="rqs-item"
         data-disabled={option.disabled || undefined}
         aria-selected={isSelected}
         aria-disabled={option.disabled}
-        className={cn("rqs-item", classNames?.item)}
+        className={classNames?.item}
         onClick={() => handleSelect(option)}
-        onKeyDown={e => {
+        onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             handleSelect(option);
@@ -164,8 +176,8 @@ function RQSelect({
       >
         {option.label}
         {isSelected && (
-          <span className={cn("rqs-item__indicator", classNames?.itemIndicator)}>
-            <CheckIcon className={cn("rqs-item__check-icon", classNames?.itemCheckIcon)} />
+          <span data-slot="rqs-item-indicator" className={classNames?.itemIndicator}>
+            <CheckIcon data-slot="rqs-item-check-icon" className={classNames?.itemCheckIcon} />
           </span>
         )}
       </div>
@@ -174,9 +186,13 @@ function RQSelect({
 
   const sentinel = optionsQuery.hasNextPage && (
     <>
-      <div ref={setSentinelNode} aria-hidden style={{ height: 1, flexShrink: 0 }} />
-      <div className={cn("rqs-message", classNames?.message)}>
-        <Spinner className={cn("rqs-sentinel-spinner", classNames?.spinner)} />
+      <div
+        ref={setSentinelNode}
+        aria-hidden
+        style={{ height: 1, flexShrink: 0 }}
+      />
+      <div data-slot="rqs-message" className={classNames?.message}>
+        <Loader2Icon data-slot="rqs-spinner" className={classNames?.spinner} />
       </div>
     </>
   );
@@ -186,25 +202,35 @@ function RQSelect({
       <PopoverPrimitive.Trigger asChild disabled={disabled}>
         <button
           type="button"
+          data-slot="rqs-trigger"
           data-placeholder={!value ? "" : undefined}
-          className={cn("rqs-trigger", classNames?.trigger, className)}
+          className={cn(classNames?.trigger, className)}
           disabled={disabled}
           aria-expanded={open}
         >
-          <span className={cn("rqs-trigger__value", classNames?.triggerValue)}>
+          <span data-slot="rqs-trigger-value" className={classNames?.triggerValue}>
             {value?.label ?? placeholder}
           </span>
-          {isInitialLoading || initialValueQuery.isLoading || optionsQuery.isFetching ? (
-            <Spinner className={cn("rqs-trigger__icon", classNames?.triggerIcon)} />
+          {isInitialLoading ||
+          initialValueQuery.isLoading ||
+          optionsQuery.isFetching ? (
+            <Loader2Icon
+              data-slot="rqs-spinner"
+              className={cn(classNames?.spinner, classNames?.triggerIcon)}
+            />
           ) : (
-            <ChevronDownIcon className={cn("rqs-trigger__icon", classNames?.triggerIcon)} />
+            <ChevronDownIcon
+              data-slot="rqs-trigger-icon"
+              className={classNames?.triggerIcon}
+            />
           )}
         </button>
       </PopoverPrimitive.Trigger>
 
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
-          className={cn("rqs-content", classNames?.content)}
+          data-slot="rqs-content"
+          className={classNames?.content}
           side="bottom"
           sideOffset={4}
           collisionPadding={8}
@@ -214,18 +240,19 @@ function RQSelect({
             width: "var(--radix-popover-trigger-width)",
             minWidth: "var(--radix-popover-trigger-width)",
           }}
-          onOpenAutoFocus={e => {
+          onOpenAutoFocus={(e) => {
             e.preventDefault();
             searchInputRef.current?.focus();
           }}
         >
           {searchable && (
-            <div className={cn("rqs-search-wrapper", classNames?.searchWrapper)}>
-              <SearchIcon className={cn("rqs-search__icon", classNames?.searchIcon)} />
+            <div data-slot="rqs-search-wrapper" className={classNames?.searchWrapper}>
+              <SearchIcon data-slot="rqs-search-icon" className={classNames?.searchIcon} />
               <input
                 ref={searchInputRef}
                 type="text"
-                className={cn("rqs-search", classNames?.searchInput)}
+                data-slot="rqs-search-input"
+                className={classNames?.searchInput}
                 placeholder={searchPlaceholder}
                 value={search}
                 onChange={handleSearchChange}
@@ -234,28 +261,66 @@ function RQSelect({
             </div>
           )}
 
-          <ScrollArea type="always" className={cn("rqs-list", classNames?.list)}>
-            <div role="listbox" aria-label="Options">
-              {isInitialLoading && (
-                <div className={cn("rqs-message", classNames?.message)}>
-                  <Spinner className={cn("rqs-loading-spinner", classNames?.spinner)} />
-                  {loadingMessage}
-                </div>
+          <ScrollAreaPrimitive.Root
+            type="always"
+            data-slot="rqs-scroll-area"
+            className={cn("relative flex flex-col flex-1 overflow-hidden", classNames?.scrollArea)}
+          >
+            <ScrollAreaPrimitive.Viewport
+              className={cn(
+                "size-full rounded-[inherit]",
+                classNames?.scrollAreaViewport,
               )}
+            >
+              <div
+                role="listbox"
+                aria-label="Options"
+                data-slot="rqs-list"
+                className={classNames?.list}
+              >
+                {isInitialLoading && (
+                  <div data-slot="rqs-message" className={classNames?.message}>
+                    <Loader2Icon
+                      data-slot="rqs-spinner"
+                      className={classNames?.spinner}
+                    />
+                    {loadingMessage}
+                  </div>
+                )}
 
-              {showError && (
-                <div className={cn("rqs-message", classNames?.message)}>{errorMessage}</div>
+                {showError && (
+                  <div data-slot="rqs-message" className={classNames?.message}>
+                    {errorMessage}
+                  </div>
+                )}
+
+                {showEmpty && (
+                  <div data-slot="rqs-message" className={classNames?.message}>
+                    {emptyMessage}
+                  </div>
+                )}
+
+                {showItems && options.map((option) => renderItem(option))}
+
+                {showItems && sentinel}
+              </div>
+            </ScrollAreaPrimitive.Viewport>
+            <ScrollAreaPrimitive.Scrollbar
+              orientation="vertical"
+              className={cn(
+                "flex touch-none p-px transition-colors select-none h-full w-2.5 border-l border-l-transparent",
+                classNames?.scrollAreaScrollbar,
               )}
-
-              {showEmpty && (
-                <div className={cn("rqs-message", classNames?.message)}>{emptyMessage}</div>
-              )}
-
-              {showItems && options.map(option => renderItem(option))}
-
-              {showItems && sentinel}
-            </div>
-          </ScrollArea>
+            >
+              <ScrollAreaPrimitive.Thumb
+                className={cn(
+                  "bg-foreground/40 relative flex-1 rounded-full",
+                  classNames?.scrollAreaThumb,
+                )}
+              />
+            </ScrollAreaPrimitive.Scrollbar>
+            <ScrollAreaPrimitive.Corner />
+          </ScrollAreaPrimitive.Root>
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>

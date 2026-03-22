@@ -1,22 +1,4 @@
-.rqs-spinner {
-  @apply size-4 animate-spin;
-}
-
-.rqs-scroll-area {
-  @apply relative;
-}
-
-.rqs-scroll-area__viewport {
-  @apply size-full rounded-[inherit];
-}
-
-.rqs-scroll-area__scrollbar {
-  @apply flex touch-none p-px transition-colors select-none h-full w-2.5 border-l border-l-transparent;
-}
-
-.rqs-scroll-area__thumb {
-  @apply bg-foreground/40 relative flex-1 rounded-full;
-}
+@reference "./index.css";
 
 .rqs-trigger {
   @apply flex min-w-0 w-full items-center justify-between whitespace-nowrap outline-none select-none;
@@ -38,22 +20,18 @@
   @media (min-width: 768px) {
     @apply text-sm;
   }
+}
 
-  & svg:not([class*="size-"]) {
-    @apply size-4;
-  }
-
-  & svg {
-    @apply pointer-events-none shrink-0;
-  }
+.rqs-trigger__value {
+  @apply flex-1 text-left truncate flex items-center gap-1.5;
 }
 
 .rqs-trigger__icon {
   @apply text-foreground-muted size-4 pointer-events-none shrink-0;
 }
 
-.rqs-trigger__value {
-  @apply flex-1 text-left truncate flex items-center gap-1.5;
+.rqs-spinner {
+  @apply size-4 animate-spin pointer-events-none shrink-0 mx-auto mb-2;
 }
 
 .rqs-content {
@@ -85,20 +63,16 @@
   @apply placeholder:text-foreground-placeholder;
 }
 
+.rqs-scroll-area--padded {
+  @apply p-1;
+}
+
 .rqs-list {
-  @apply p-1 flex flex-col flex-1 overflow-hidden;
+  @apply flex flex-col;
 }
 
 .rqs-message {
-  @apply px-3 py-4 text-center text-sm text-foreground-muted;
-}
-
-.rqs-sentinel-spinner {
-  @apply size-4 mx-auto animate-spin;
-}
-
-.rqs-loading-spinner {
-  @apply size-4 mx-auto mb-1 animate-spin;
+  @apply px-3 py-1 text-center text-sm text-foreground-muted;
 }
 
 .rqs-item {
