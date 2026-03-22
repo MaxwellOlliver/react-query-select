@@ -19,10 +19,9 @@ function RQSelect({
   onChange,
   queryKey,
   fetcher,
+  optionFetcher,
   deps = EMPTY_DEPS,
   fetchOnOpen = true,
-  initialValueId,
-  initialValueFetcher,
   searchable = true,
   searchDebounceMs = 300,
   searchPlaceholder = "Search...",
@@ -41,7 +40,6 @@ function RQSelect({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [sentinelNode, setSentinelNode] = useState<HTMLDivElement | null>(null);
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
-  const initialValueApplied = useRef(false);
 
   const debouncedSetSearch = useMemo(
     () => debounce((val: string) => setDebouncedSearch(val), searchDebounceMs),
@@ -76,17 +74,6 @@ function RQSelect({
     refetchOnWindowFocus: false,
   });
 
-  const shouldFetchInitialValue =
-    !!initialValueId && !!initialValueFetcher && !value;
-  const initialValueQuery = useQuery({
-    queryKey: ["rq-select-initial", queryKey, initialValueId],
-    queryFn: () => initialValueFetcher!(initialValueId!),
-    enabled: shouldFetchInitialValue,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
-    refetchOnWindowFocus: false,
-  });
-
   const { hasNextPage, fetchNextPage } = optionsQuery;
 
   const pages = optionsQuery.data?.pages;
@@ -95,6 +82,22 @@ function RQSelect({
     if (!pages) return [];
     return pages.flatMap((page) => page.options).filter((opt) => !opt.hidden);
   }, [pages]);
+
+  // Resolve value string → full option (check fetched list first, then optionFetcher)
+  const resolvedFromOptions = value
+    ? options.find((opt) => opt.value === value)
+    : undefined;
+
+  const optionQuery = useQuery({
+    queryKey: ["rq-select-option", queryKey, value],
+    queryFn: () => optionFetcher!(value!),
+    enabled: !!value && !!optionFetcher && !resolvedFromOptions,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+  });
+
+  const selectedOption = resolvedFromOptions ?? optionQuery.data;
 
   useEffect(() => {
     if (!sentinelNode) return;
@@ -117,18 +120,14 @@ function RQSelect({
     optionsQuery.isFetchingNextPage,
   ]);
 
-  useEffect(() => {
-    if (initialValueQuery.data && !initialValueApplied.current) {
-      initialValueApplied.current = true;
-      onChange?.(initialValueQuery.data);
-    }
-  }, [initialValueQuery.data, onChange]);
-
   const handleSelect = useCallback(
     (option: RQSelectOption) => {
       if (option.disabled) return;
-      const isDeselect = value?.value === option.value;
-      onChange?.(isDeselect ? undefined : option);
+      const isDeselect = value === option.value;
+      onChange?.(
+        isDeselect ? undefined : option.value,
+        isDeselect ? undefined : option,
+      );
       setOpen(false);
       setSearch("");
       debouncedSetSearch("");
@@ -155,7 +154,7 @@ function RQSelect({
   const showItems = !isInitialLoading && !showError && options.length > 0;
 
   const renderItem = (option: RQSelectOption) => {
-    const isSelected = value?.value === option.value;
+    const isSelected = value === option.value;
     return (
       <div
         key={option.value}
@@ -209,10 +208,10 @@ function RQSelect({
           aria-expanded={open}
         >
           <span data-slot="rqs-trigger-value" className={classNames?.triggerValue}>
-            {value?.label ?? placeholder}
+            {selectedOption?.label ?? placeholder}
           </span>
           {isInitialLoading ||
-          initialValueQuery.isLoading ||
+          optionQuery.isLoading ||
           optionsQuery.isFetching ? (
             <Loader2Icon
               data-slot="rqs-spinner"

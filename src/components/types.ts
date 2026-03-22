@@ -33,18 +33,15 @@ export type RQSelectClassNames = {
 
 export type RQSelectProps = {
   // Value
-  value?: RQSelectOption;
-  onChange?: (option: RQSelectOption | undefined) => void;
+  value?: string;
+  onChange?: (value: string | undefined, option: RQSelectOption | undefined) => void;
 
   // Data fetching
   queryKey: string;
   fetcher: (params: { search: string; page: number }) => Promise<RQSelectFetcherResult>;
+  optionFetcher?: (value: string) => Promise<RQSelectOption>;
   deps?: unknown[];
   fetchOnOpen?: boolean;
-
-  // Initial value loading (when only an ID is available, e.g. from database)
-  initialValueId?: string;
-  initialValueFetcher?: (id: string) => Promise<RQSelectOption>;
 
   // Search
   searchable?: boolean;

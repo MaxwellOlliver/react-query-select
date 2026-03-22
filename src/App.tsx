@@ -31,8 +31,8 @@ const rickAndMortyFetcher = async ({
   return { options, hasMore: data.info.next !== null };
 };
 
-const rickAndMortyInitialValueFetcher = async (id: string): Promise<RQSelectOption> => {
-  const res = await fetch(`https://rickandmortyapi.com/api/character/${id}`);
+const rickAndMortyOptionFetcher = async (value: string): Promise<RQSelectOption> => {
+  const res = await fetch(`https://rickandmortyapi.com/api/character/${value}`);
   const data = await res.json();
   return {
     label: data.name,
@@ -42,7 +42,8 @@ const rickAndMortyInitialValueFetcher = async (id: string): Promise<RQSelectOpti
 };
 
 function App() {
-  const [value, setValue] = useState<RQSelectOption | undefined>();
+  const [value, setValue] = useState<string | undefined>("1");
+  const [selectedOption, setSelectedOption] = useState<RQSelectOption>();
 
   return (
     <div>
@@ -50,10 +51,12 @@ function App() {
       <RQSelect
         queryKey="rick-and-morty"
         value={value}
-        onChange={setValue}
+        onChange={(val, option) => {
+          setValue(val);
+          setSelectedOption(option);
+        }}
         fetcher={rickAndMortyFetcher}
-        initialValueId="1"
-        initialValueFetcher={rickAndMortyInitialValueFetcher}
+        optionFetcher={rickAndMortyOptionFetcher}
         placeholder="Select a character..."
         searchPlaceholder="Search characters..."
         classNames={{
@@ -73,17 +76,17 @@ function App() {
           itemCheckIcon: "rqs-item__check-icon",
         }}
       />
-      {value && (
+      {selectedOption && (
         <div className="mt-4 flex items-center gap-3 rounded-lg border border-border p-3">
           <img
-            src={value.metadata?.image as string}
-            alt={value.label}
+            src={selectedOption.metadata?.image as string}
+            alt={selectedOption.label}
             className="size-12 rounded-full object-cover"
           />
           <div className="text-sm">
-            <p className="font-medium">{value.label}</p>
+            <p className="font-medium">{selectedOption.label}</p>
             <p className="text-foreground-muted">
-              {value.metadata?.species as string} &middot; {value.metadata?.status as string}
+              {selectedOption.metadata?.species as string} &middot; {selectedOption.metadata?.status as string}
             </p>
           </div>
         </div>
