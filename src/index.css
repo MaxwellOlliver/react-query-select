@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@import "./components/rq-select.css";
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#root {
+  max-width: 400px;
+  margin: 40px auto;
+  padding: 0 16px;
+}
