@@ -7,14 +7,21 @@ import {
   ChevronDownIcon,
   Loader2Icon,
   SearchIcon,
+  XIcon,
 } from "lucide-react";
 import debounce from "lodash.debounce";
 import { cn } from "../lib/cn";
-import type { RQSelectOption, RQSelectProps } from "./types";
+import type {
+  RQSelectMultipleProps,
+  RQSelectOption,
+  RQSelectProps,
+  RQSelectSingleProps,
+} from "./types";
 
 const EMPTY_DEPS: unknown[] = [];
 
 function RQSelect({
+  multiple,
   value,
   onChange,
   queryKey,
@@ -83,21 +90,56 @@ function RQSelect({
     return pages.flatMap((page) => page.options).filter((opt) => !opt.hidden);
   }, [pages]);
 
-  // Resolve value string → full option (check fetched list first, then optionFetcher)
-  const resolvedFromOptions = value
-    ? options.find((opt) => opt.value === value)
-    : undefined;
+  // Normalize value to array for unified resolution logic
+  const values = useMemo(
+    () => (multiple ? (value ?? []) : value ? [value] : []),
+    [multiple, value],
+  );
 
-  const optionQuery = useQuery({
-    queryKey: ["rq-select-option", queryKey, value],
-    queryFn: () => optionFetcher!(value!),
-    enabled: !!value && !!optionFetcher && !resolvedFromOptions,
+  const hasValue = values.length > 0;
+
+  // Find values that aren't in the fetched options list and need resolving
+  const valuesToResolve = useMemo(() => {
+    if (!optionFetcher) return [];
+    return values.filter((v) => !options.find((o) => o.value === v));
+  }, [values, options, optionFetcher]);
+
+  // Resolve values not in the fetched options list
+  const resolveQuery = useQuery({
+    queryKey: ["rq-select-resolve", queryKey, ...valuesToResolve] as const,
+    queryFn: async () => {
+      if (multiple) {
+        return optionFetcher!(valuesToResolve);
+      }
+      const option = await optionFetcher!(valuesToResolve[0]);
+      return [option];
+    },
+    enabled: valuesToResolve.length > 0 && !!optionFetcher,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
   });
 
-  const selectedOption = resolvedFromOptions ?? optionQuery.data;
+  // Build a lookup map from resolved query
+  const resolvedMap = useMemo(() => {
+    const map = new Map<string, RQSelectOption>();
+    resolveQuery.data?.forEach((opt) => map.set(opt.value, opt));
+    return map;
+  }, [resolveQuery.data]);
+
+  // Resolve a single value to its full option
+  const resolveValue = useCallback(
+    (v: string) => options.find((o) => o.value === v) ?? resolvedMap.get(v),
+    [options, resolvedMap],
+  );
+
+  // Resolved options for current value(s)
+  const resolvedOptions = useMemo(
+    () => values.map(resolveValue).filter((o): o is RQSelectOption => !!o),
+    [values, resolveValue],
+  );
+
+  const isResolvingOptions = resolveQuery.isLoading;
 
   useEffect(() => {
     if (!sentinelNode) return;
@@ -123,16 +165,50 @@ function RQSelect({
   const handleSelect = useCallback(
     (option: RQSelectOption) => {
       if (option.disabled) return;
-      const isDeselect = value === option.value;
-      onChange?.(
-        isDeselect ? undefined : option.value,
-        isDeselect ? undefined : option,
-      );
-      setOpen(false);
-      setSearch("");
-      debouncedSetSearch("");
+
+      if (multiple) {
+        const currentValues = (value as string[] | undefined) ?? [];
+        const isDeselect = currentValues.includes(option.value);
+        const newValues = isDeselect
+          ? currentValues.filter((v) => v !== option.value)
+          : [...currentValues, option.value];
+
+        const newOptions = newValues
+          .map(
+            (v) => resolveValue(v) ?? (v === option.value ? option : undefined),
+          )
+          .filter((o): o is RQSelectOption => !!o);
+
+        (onChange as RQSelectMultipleProps["onChange"])?.(
+          newValues,
+          newOptions,
+        );
+      } else {
+        const isDeselect = value === option.value;
+        (onChange as RQSelectSingleProps["onChange"])?.(
+          isDeselect ? undefined : option.value,
+          isDeselect ? undefined : option,
+        );
+        setOpen(false);
+        setSearch("");
+        debouncedSetSearch("");
+      }
     },
-    [value, onChange, debouncedSetSearch],
+    [multiple, value, onChange, resolveValue, debouncedSetSearch],
+  );
+
+  const handleRemove = useCallback(
+    (e: React.MouseEvent, optionValue: string) => {
+      e.stopPropagation();
+      if (!multiple) return;
+      const currentValues = (value as string[] | undefined) ?? [];
+      const newValues = currentValues.filter((v) => v !== optionValue);
+      const newOptions = newValues
+        .map(resolveValue)
+        .filter((o): o is RQSelectOption => !!o);
+      (onChange as RQSelectMultipleProps["onChange"])?.(newValues, newOptions);
+    },
+    [multiple, value, onChange, resolveValue],
   );
 
   const handleOpenChange = useCallback(
@@ -153,15 +229,23 @@ function RQSelect({
   const showEmpty = !isInitialLoading && !showError && options.length === 0;
   const showItems = !isInitialLoading && !showError && options.length > 0;
 
+  const isSelected = useCallback(
+    (optionValue: string) =>
+      multiple
+        ? ((value as string[] | undefined) ?? []).includes(optionValue)
+        : value === optionValue,
+    [multiple, value],
+  );
+
   const renderItem = (option: RQSelectOption) => {
-    const isSelected = value === option.value;
+    const selected = isSelected(option.value);
     return (
       <div
         key={option.value}
         role="option"
         data-slot="rqs-item"
         data-disabled={option.disabled || undefined}
-        aria-selected={isSelected}
+        aria-selected={selected}
         aria-disabled={option.disabled}
         className={classNames?.item}
         onClick={() => handleSelect(option)}
@@ -174,9 +258,15 @@ function RQSelect({
         tabIndex={option.disabled ? -1 : 0}
       >
         {option.label}
-        {isSelected && (
-          <span data-slot="rqs-item-indicator" className={classNames?.itemIndicator}>
-            <CheckIcon data-slot="rqs-item-check-icon" className={classNames?.itemCheckIcon} />
+        {selected && (
+          <span
+            data-slot="rqs-item-indicator"
+            className={classNames?.itemIndicator}
+          >
+            <CheckIcon
+              data-slot="rqs-item-check-icon"
+              className={classNames?.itemCheckIcon}
+            />
           </span>
         )}
       </div>
@@ -202,17 +292,39 @@ function RQSelect({
         <button
           type="button"
           data-slot="rqs-trigger"
-          data-placeholder={!value ? "" : undefined}
+          data-placeholder={!hasValue ? "" : undefined}
           className={cn(classNames?.trigger, className)}
           disabled={disabled}
           aria-expanded={open}
+          data-multiple={multiple}
         >
-          <span data-slot="rqs-trigger-value" className={classNames?.triggerValue}>
-            {selectedOption?.label ?? placeholder}
+          <span
+            data-slot="rqs-trigger-value"
+            className={classNames?.triggerValue}
+          >
+            {multiple && resolvedOptions.length > 0
+              ? resolvedOptions.map((opt) => (
+                  <span
+                    key={opt.value}
+                    data-slot="rqs-pill"
+                    className={classNames?.pill}
+                  >
+                    {opt.label}
+                    <button
+                      type="button"
+                      data-slot="rqs-pill-remove"
+                      className={classNames?.pillRemove}
+                      onClick={(e) => handleRemove(e, opt.value)}
+                      aria-label={`Remove ${opt.label}`}
+                      tabIndex={-1}
+                    >
+                      <XIcon />
+                    </button>
+                  </span>
+                ))
+              : resolvedOptions[0]?.label || placeholder}
           </span>
-          {isInitialLoading ||
-          optionQuery.isLoading ||
-          optionsQuery.isFetching ? (
+          {isInitialLoading || isResolvingOptions || optionsQuery.isFetching ? (
             <Loader2Icon
               data-slot="rqs-spinner"
               className={cn(classNames?.spinner, classNames?.triggerIcon)}
@@ -245,8 +357,14 @@ function RQSelect({
           }}
         >
           {searchable && (
-            <div data-slot="rqs-search-wrapper" className={classNames?.searchWrapper}>
-              <SearchIcon data-slot="rqs-search-icon" className={classNames?.searchIcon} />
+            <div
+              data-slot="rqs-search-wrapper"
+              className={classNames?.searchWrapper}
+            >
+              <SearchIcon
+                data-slot="rqs-search-icon"
+                className={classNames?.searchIcon}
+              />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -263,7 +381,10 @@ function RQSelect({
           <ScrollAreaPrimitive.Root
             type="always"
             data-slot="rqs-scroll-area"
-            className={cn("relative flex flex-col flex-1 overflow-hidden", classNames?.scrollArea)}
+            className={cn(
+              "relative flex flex-col flex-1 overflow-hidden",
+              classNames?.scrollArea,
+            )}
           >
             <ScrollAreaPrimitive.Viewport
               className={cn(
@@ -274,6 +395,7 @@ function RQSelect({
               <div
                 role="listbox"
                 aria-label="Options"
+                aria-multiselectable={multiple || undefined}
                 data-slot="rqs-list"
                 className={classNames?.list}
               >
@@ -281,7 +403,7 @@ function RQSelect({
                   <div data-slot="rqs-message" className={classNames?.message}>
                     <Loader2Icon
                       data-slot="rqs-spinner"
-                      className={classNames?.spinner}
+                      className={cn(classNames?.spinner, "animate-spin")}
                     />
                     {loadingMessage}
                   </div>

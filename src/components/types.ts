@@ -28,18 +28,15 @@ export type RQSelectClassNames = {
   item?: string;
   itemIndicator?: string;
   itemCheckIcon?: string;
+  pill?: string;
+  pillRemove?: string;
   spinner?: string;
 };
 
-export type RQSelectProps = {
-  // Value
-  value?: string;
-  onChange?: (value: string | undefined, option: RQSelectOption | undefined) => void;
-
+type RQSelectBaseProps = {
   // Data fetching
   queryKey: string;
   fetcher: (params: { search: string; page: number }) => Promise<RQSelectFetcherResult>;
-  optionFetcher?: (value: string) => Promise<RQSelectOption>;
   deps?: unknown[];
   fetchOnOpen?: boolean;
 
@@ -60,3 +57,22 @@ export type RQSelectProps = {
   emptyMessage?: string;
   errorMessage?: string;
 };
+
+export type RQSelectSingleOptionFetcher = (value: string) => Promise<RQSelectOption>;
+export type RQSelectMultipleOptionFetcher = (values: string[]) => Promise<RQSelectOption[]>;
+
+export type RQSelectSingleProps = RQSelectBaseProps & {
+  multiple?: false;
+  value?: string;
+  onChange?: (value: string | undefined, option: RQSelectOption | undefined) => void;
+  optionFetcher?: RQSelectSingleOptionFetcher;
+};
+
+export type RQSelectMultipleProps = RQSelectBaseProps & {
+  multiple: true;
+  value?: string[];
+  onChange?: (value: string[], options: RQSelectOption[]) => void;
+  optionFetcher?: RQSelectMultipleOptionFetcher;
+};
+
+export type RQSelectProps = RQSelectSingleProps | RQSelectMultipleProps;
