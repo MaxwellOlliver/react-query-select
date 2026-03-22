@@ -35,6 +35,7 @@ function RQSelect({
   placeholder = "Select...",
   disabled = false,
   readOnly = false,
+  clearable = false,
   className,
   classNames,
   loadingMessage = "Loading...",
@@ -121,16 +122,14 @@ function RQSelect({
   });
 
   // Build a lookup map from resolved query
-  const resolvedMap = useMemo(() => {
-    const map = new Map<string, RQSelectOption>();
-    resolveQuery.data?.forEach((opt) => map.set(opt.value, opt));
-    return map;
-  }, [resolveQuery.data]);
+  const resolvedFromQuery = resolveQuery.data;
 
   // Resolve a single value to its full option
   const resolveValue = useCallback(
-    (v: string) => options.find((o) => o.value === v) ?? resolvedMap.get(v),
-    [options, resolvedMap],
+    (v: string) =>
+      options.find((o) => o.value === v) ??
+      resolvedFromQuery?.find((o) => o.value === v),
+    [options, resolvedFromQuery],
   );
 
   // Resolved options for current value(s)
@@ -209,6 +208,18 @@ function RQSelect({
       (onChange as RQSelectMultipleProps["onChange"])?.(newValues, newOptions);
     },
     [multiple, value, onChange, resolveValue],
+  );
+
+  const handleClear = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (multiple) {
+        (onChange as RQSelectMultipleProps["onChange"])?.([], []);
+      } else {
+        (onChange as RQSelectSingleProps["onChange"])?.(undefined, undefined);
+      }
+    },
+    [multiple, onChange],
   );
 
   const handleOpenChange = useCallback(
@@ -324,6 +335,18 @@ function RQSelect({
                 ))
               : resolvedOptions[0]?.label || placeholder}
           </span>
+          {clearable && hasValue && !disabled && !readOnly && (
+            <button
+              type="button"
+              data-slot="rqs-clear"
+              className={classNames?.clear}
+              onClick={handleClear}
+              aria-label="Clear selection"
+              tabIndex={-1}
+            >
+              <XIcon />
+            </button>
+          )}
           {isInitialLoading || isResolvingOptions || optionsQuery.isFetching ? (
             <Loader2Icon
               data-slot="rqs-spinner"

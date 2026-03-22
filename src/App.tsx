@@ -96,6 +96,7 @@ const rqSelectClassNames = {
   itemCheckIcon: "rqs-item__check-icon",
   pill: "rqs-pill",
   pillRemove: "rqs-pill-remove",
+  clear: "rqs-clear",
 } as const;
 
 function App() {
@@ -120,6 +121,7 @@ function App() {
           optionFetcher={rickAndMortyOptionFetcher}
           placeholder="Select a character..."
           searchPlaceholder="Search characters..."
+          clearable
           classNames={rqSelectClassNames}
         />
         {singleOption && (
@@ -154,6 +156,7 @@ function App() {
           optionFetcher={rickAndMortyOptionsFetcher}
           placeholder="Select characters..."
           searchPlaceholder="Search characters..."
+          clearable
           classNames={rqSelectClassNames}
         />
         {multiOptions.length > 0 && (

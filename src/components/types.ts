@@ -30,6 +30,7 @@ export type RQSelectClassNames = {
   itemCheckIcon?: string;
   pill?: string;
   pillRemove?: string;
+  clear?: string;
   spinner?: string;
 };
 
@@ -49,6 +50,7 @@ type RQSelectBaseProps = {
   placeholder?: string;
   disabled?: boolean;
   readOnly?: boolean;
+  clearable?: boolean;
   className?: string;
   classNames?: RQSelectClassNames;
 
