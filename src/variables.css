@@ -1,0 +1,62 @@
+:root {
+  --background: oklch(0.21 0.007 255.18);
+  --background-muted: oklch(0.245 0.009 255.18);
+  --foreground: oklch(0.9 0.01 255.18);
+  --foreground-muted: oklch(70.2% 0.003 264.542);
+  --foreground-placeholder: oklch(60.2% 0.003 264.542);
+
+  --primary: oklch(82.148% 0.15066 166.02);
+  --primary-50: oklch(97.008% 0.02477 174.76);
+  --primary-100: oklch(95.016% 0.04055 173.28);
+  --primary-200: oklch(91.335% 0.07361 172.27);
+  --primary-300: oklch(87.995% 0.10383 169.99);
+  --primary-400: oklch(84.757% 0.12901 168.72);
+  --primary-500: oklch(82.148% 0.15066 166.02);
+  --primary-600: oklch(76.401% 0.15914 163.15);
+  --primary-700: oklch(62.985% 0.12978 163.59);
+  --primary-800: oklch(48.515% 0.09789 164.11);
+  --primary-900: oklch(32.873% 0.06273 165.21);
+  --primary-950: oklch(24.516% 0.04372 167.02);
+
+  --accent: oklch(20.747% 0.06734 269.67);
+  --accent-foreground: oklch(96.7% 0.003 264.542);
+  --accent-50: oklch(47.893% 0.20071 267.39);
+  --accent-100: oklch(45.044% 0.18895 267.8);
+  --accent-200: oklch(39.313% 0.16024 267.78);
+  --accent-300: oklch(33.521% 0.13127 268.14);
+  --accent-400: oklch(27.115% 0.10073 268.6);
+  --accent-500: oklch(20.747% 0.06734 269.67);
+  --accent-600: oklch(9.9148% 0.01811 269.89);
+  --accent-700: oklch(0% 0 none);
+
+  --secondary: oklch(94.912% 0 none);
+  --secondary-foreground: #28282b;
+  --secondary-50: oklch(100% 0 none);
+  --secondary-100: oklch(100% 0 none);
+  --secondary-200: oklch(100% 0 none);
+  --secondary-300: oklch(100% 0 none);
+  --secondary-400: oklch(100% 0 none) --secondary-500: oklch(94.912% 0 none);
+  --secondary-600: oklch(86.378% 0 none);
+  --secondary-700: oklch(77.627% 0 none);
+  --secondary-800: oklch(68.622% 0 none);
+  --secondary-900: oklch(59.31% 0 none);
+  --secondary-950: oklch(54.517% 0 none);
+
+  --accent: oklch(30.957% 0.14399 262.07);
+  --accent-foreground: oklch(98% 0.01399 262.07);
+  --accent-50: oklch(59.417% 0.22067 262.73);
+  --accent-100: oklch(56.284% 0.24053 262.6);
+  --accent-200: oklch(50.609% 0.25181 262.87);
+  --accent-300: oklch(44.372% 0.21828 262.75);
+  --accent-400: oklch(37.808% 0.18211 262.51);
+  --accent-500: oklch(30.957% 0.14399 262.07);
+  --accent-600: oklch(20.913% 0.08736 260.43);
+  --accent-700: oklch(8.392% 0.0246 251.28);
+
+  --ring: oklch(0.403 0.01 255.18);
+  --container: oklch(0.293 0.01 255.18);
+  --border: oklch(0.27 0.01 255.18);
+  --input: oklch(0.26 0.008 255.18);
+  --card: oklch(0.22 0.007 255.18);
+  --popover: oklch(0.28 0.01 255.18);
+}
