@@ -1,73 +1,78 @@
-# React + TypeScript + Vite
+# rc-query-select
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React select component that uses [React Query](https://tanstack.com/query) to fetch options asynchronously. Supports server-side search, infinite scrolling, and initial value resolution by ID.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Async data fetching** — provide a `fetcher` function, options are loaded via React Query
+- **Server-side search** — debounced search input passes the query to your fetcher
+- **Infinite scroll** — automatically fetches the next page when the user scrolls to the bottom
+- **Initial value by ID** — resolve a selected value from just an ID (e.g. from a database) via `initialValueFetcher`
+- **Fully styleable** — override any part via the `classNames` prop or target `rqs-*` CSS classes directly
 
-## React Compiler
+## Usage
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```tsx
+import { RQSelect } from "./components";
+import type { RQSelectOption } from "./components";
 
-## Expanding the ESLint configuration
+const [value, setValue] = useState<RQSelectOption | undefined>();
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+<RQSelect
+  queryKey="users"
+  value={value}
+  onChange={setValue}
+  fetcher={({ search, page }) =>
+    fetch(`/api/users?q=${search}&page=${page}`).then(r => r.json())
+  }
+  placeholder="Select a user..."
+/>
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The `fetcher` receives `{ search: string; page: number }` and must return `{ options: RQSelectOption[]; hasMore: boolean }`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Props
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `value` | `RQSelectOption` | — | Currently selected option |
+| `onChange` | `(option \| undefined) => void` | — | Called on select/deselect |
+| `queryKey` | `string` | — | Unique key for the React Query cache |
+| `fetcher` | `({ search, page }) => Promise<Result>` | — | Async function to load options |
+| `deps` | `unknown[]` | `[]` | Extra dependencies that trigger a refetch |
+| `fetchOnOpen` | `boolean` | `true` | Delay fetching until the dropdown opens |
+| `initialValueId` | `string` | — | ID to resolve into a full option on mount |
+| `initialValueFetcher` | `(id: string) => Promise<Option>` | — | Fetcher for resolving `initialValueId` |
+| `searchable` | `boolean` | `true` | Show the search input |
+| `searchDebounceMs` | `number` | `300` | Debounce delay for search |
+| `placeholder` | `string` | `"Select..."` | Trigger placeholder text |
+| `disabled` | `boolean` | `false` | Disable the select |
+| `readOnly` | `boolean` | `false` | Make the select read-only |
+| `className` | `string` | — | Class for the trigger button |
+| `classNames` | `RQSelectClassNames` | — | Override classes for individual parts |
+
+## Styling
+
+The component uses CSS classes prefixed with `rqs-`. You can override any part using the `classNames` prop:
+
+```tsx
+<RQSelect
+  classNames={{
+    trigger: "my-trigger",
+    content: "my-dropdown",
+    item: "my-item",
+  }}
+  // ...
+/>
+```
+
+Available slots: `trigger`, `triggerIcon`, `triggerValue`, `content`, `searchWrapper`, `searchIcon`, `searchInput`, `list`, `message`, `item`, `itemIndicator`, `itemCheckIcon`, `spinner`.
+
+## Development
+
+```sh
+pnpm install
+pnpm dev       # start dev server on :5173
+pnpm build     # typecheck + build
+pnpm lint      # eslint
 ```
