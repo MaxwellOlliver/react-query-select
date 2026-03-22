@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CheckIcon } from "lucide-react";
 import { RQSelect } from "./components";
 import type { RQSelectOption, RQSelectFetcherResult } from "./components";
 import "./app.css";
@@ -99,6 +100,28 @@ const rqSelectClassNames = {
   clear: "rqs-clear",
 } as const;
 
+const renderCharacterOption = (
+  option: RQSelectOption,
+  { selected }: { selected: boolean },
+) => (
+  <>
+    <img
+      src={option.metadata?.image as string}
+      alt={option.label}
+      className="size-6 rounded-full object-cover shrink-0"
+    />
+    <span className="flex-1 truncate">{option.label}</span>
+    <span className="text-xs text-foreground-muted">
+      {option.metadata?.species as string}
+    </span>
+    {selected && (
+      <span className="rqs-item__indicator">
+        <CheckIcon className="rqs-item__check-icon" />
+      </span>
+    )}
+  </>
+);
+
 function App() {
   const [singleValue, setSingleValue] = useState<string | undefined>("1");
   const [singleOption, setSingleOption] = useState<RQSelectOption>();
@@ -122,6 +145,7 @@ function App() {
           placeholder="Select a character..."
           searchPlaceholder="Search characters..."
           clearable
+          renderOption={renderCharacterOption}
           classNames={rqSelectClassNames}
         />
         {singleOption && (
@@ -157,6 +181,7 @@ function App() {
           placeholder="Select characters..."
           searchPlaceholder="Search characters..."
           clearable
+          renderOption={renderCharacterOption}
           classNames={rqSelectClassNames}
         />
         {multiOptions.length > 0 && (

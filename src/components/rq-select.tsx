@@ -38,6 +38,7 @@ function RQSelect({
   clearable = false,
   className,
   classNames,
+  renderOption,
   loadingMessage = "Loading...",
   emptyMessage = "No options found",
   errorMessage = "Failed to load options",
@@ -268,17 +269,23 @@ function RQSelect({
         }}
         tabIndex={option.disabled ? -1 : 0}
       >
-        {option.label}
-        {selected && (
-          <span
-            data-slot="rqs-item-indicator"
-            className={classNames?.itemIndicator}
-          >
-            <CheckIcon
-              data-slot="rqs-item-check-icon"
-              className={classNames?.itemCheckIcon}
-            />
-          </span>
+        {renderOption ? (
+          renderOption(option, { selected })
+        ) : (
+          <>
+            {option.label}
+            {selected && (
+              <span
+                data-slot="rqs-item-indicator"
+                className={classNames?.itemIndicator}
+              >
+                <CheckIcon
+                  data-slot="rqs-item-check-icon"
+                  className={classNames?.itemCheckIcon}
+                />
+              </span>
+            )}
+          </>
         )}
       </div>
     );

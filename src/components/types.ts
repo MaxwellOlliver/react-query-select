@@ -1,3 +1,5 @@
+import type React from "react";
+
 export type RQSelectOption = {
   label: string;
   value: string;
@@ -53,6 +55,9 @@ type RQSelectBaseProps = {
   clearable?: boolean;
   className?: string;
   classNames?: RQSelectClassNames;
+
+  // Rendering
+  renderOption?: (option: RQSelectOption, state: { selected: boolean }) => React.ReactNode;
 
   // Messages
   loadingMessage?: string;
