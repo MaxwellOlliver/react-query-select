@@ -7,8 +7,6 @@ const styleSlots: [string, string, string][] = [
   ["pill", "rqs-pill", "Multi-select pill"],
   ["pillRemove", "rqs-pill-remove", "Pill remove button"],
   ["content", "rqs-content", "Popover content"],
-  ["searchWrapper", "rqs-search-wrapper", "Search input wrapper"],
-  ["searchIcon", "rqs-search-icon", "Search icon"],
   ["searchInput", "rqs-search-input", "Search input"],
   ["scrollArea", "rqs-scroll-area", "Scroll area root"],
   ["list", "rqs-list", "Options listbox"],

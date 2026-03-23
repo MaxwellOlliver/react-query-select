@@ -39,8 +39,8 @@ export function DemoSection({
         <h2 className="text-base font-semibold tracking-tight">{title}</h2>
         <p className="text-sm text-foreground-muted mt-0.5">{description}</p>
       </div>
-      <div className="rounded-lg border border-border">
-        <div className="p-4 h-52 flex items-center justify-center">
+      <div className="rounded-lg border border-border overflow-hidden">
+        <div className="p-4 min-h-52 flex items-center justify-center">
           {children}
         </div>
         <div className="border-t border-border relative bg-background-muted/50">

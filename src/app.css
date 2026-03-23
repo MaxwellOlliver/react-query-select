@@ -7,7 +7,7 @@
   @apply dark:bg-input/30;
   @apply ring-primary focus:border-primary focus:ring-1;
   @apply aria-invalid:ring-danger dark:aria-invalid:ring-danger aria-invalid:border-danger;
-  @apply disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 data-multiple:pl-1 data-multiple:**:data-[slot="rqs-placeholder"]:pl-2;
+  @apply disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 data-multiple:pl-1 data-[has-value='false']:data-multiple:**:data-[slot="rqs-search-input"]:pl-2;
 
   &:not([aria-invalid="true"]):not(:focus):hover {
     @apply border-foreground/15;
@@ -70,17 +70,13 @@
   }
 }
 
-.rqs-search-wrapper {
-  @apply p-1 px-2 border-b border-border flex items-center gap-1;
-}
-
-.rqs-search__icon {
-  @apply size-4 shrink-0 text-foreground-muted mr-1;
-}
-
 .rqs-search {
-  @apply w-full rounded-md bg-transparent px-0 py-1.5 text-sm outline-none;
+  @apply flex-1 min-w-8 bg-transparent text-base outline-none;
   @apply placeholder:text-foreground-placeholder;
+
+  @media (min-width: 768px) {
+    @apply text-sm;
+  }
 }
 
 .rqs-scroll-area--padded {

@@ -18,8 +18,6 @@ export type RQSelectClassNames = {
   triggerIcon?: string;
   triggerValue?: string;
   content?: string;
-  searchWrapper?: string;
-  searchIcon?: string;
   searchInput?: string;
   scrollArea?: string;
   scrollAreaViewport?: string;

@@ -4,8 +4,6 @@ export const rqSelectClassNames = {
   triggerIcon: "rqs-trigger__icon",
   spinner: "rqs-spinner",
   content: "rqs-content",
-  searchWrapper: "rqs-search-wrapper",
-  searchIcon: "rqs-search__icon",
   searchInput: "rqs-search",
   scrollArea: "rqs-scroll-area--padded",
   list: "rqs-list",

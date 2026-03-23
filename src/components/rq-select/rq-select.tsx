@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  Loader2Icon,
-  SearchIcon,
-  XIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react";
 import { RemoveScroll } from "react-remove-scroll";
 import debounce from "lodash.debounce";
 import { cn } from "../../lib/cn";
@@ -49,6 +47,7 @@ function RQSelect({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [sentinelNode, setSentinelNode] = useState<HTMLDivElement | null>(null);
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
@@ -85,6 +84,7 @@ function RQSelect({
     getNextPageParam: (lastPage, _allPages, lastPageParam) =>
       lastPage.hasMore ? lastPageParam + 1 : undefined,
     enabled: optionsEnabled,
+    placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false,
@@ -106,10 +106,16 @@ function RQSelect({
 
   const hasValue = values.length > 0;
 
+  const [selectedOptions, setSelectedOptions] = useState<RQSelectOption[]>([]);
+
   const valuesToResolve = useMemo(() => {
     if (!optionFetcher) return [];
-    return values.filter((v) => !options.find((o) => o.value === v));
-  }, [values, options, optionFetcher]);
+    return values.filter(
+      (v) =>
+        !options.find((o) => o.value === v) &&
+        !selectedOptions.find((o) => o.value === v),
+    );
+  }, [values, options, optionFetcher, selectedOptions]);
 
   const resolveQuery = useQuery({
     queryKey: ["rq-select-resolve", queryKey, ...valuesToResolve] as const,
@@ -126,19 +132,24 @@ function RQSelect({
     refetchOnWindowFocus: false,
   });
 
-  const resolvedFromQuery = resolveQuery.data;
+  // Sync selected options from query results — legitimate derived state sync
+  useEffect(() => {
+    const resolved = values
+      .map(
+        (v) =>
+          options.find((o) => o.value === v) ??
+          resolveQuery.data?.find((o) => o.value === v) ??
+          selectedOptions.find((o) => o.value === v),
+      )
+      .filter((o): o is RQSelectOption => !!o);
 
-  const resolveValue = useCallback(
-    (v: string) =>
-      options.find((o) => o.value === v) ??
-      resolvedFromQuery?.find((o) => o.value === v),
-    [options, resolvedFromQuery],
-  );
-
-  const resolvedOptions = useMemo(
-    () => values.map(resolveValue).filter((o): o is RQSelectOption => !!o),
-    [values, resolveValue],
-  );
+    if (
+      resolved.length !== selectedOptions.length ||
+      resolved.some((o, i) => o.value !== selectedOptions[i]?.value)
+    ) {
+      setSelectedOptions(resolved); // eslint-disable-line  react-hooks/set-state-in-effect
+    }
+  }, [values, options, resolveQuery.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isResolvingOptions = resolveQuery.isLoading;
 
@@ -174,16 +185,17 @@ function RQSelect({
           ? currentValues.filter((v) => v !== option.value)
           : [...currentValues, option.value];
 
-        const newOptions = newValues
-          .map(
-            (v) => resolveValue(v) ?? (v === option.value ? option : undefined),
-          )
-          .filter((o): o is RQSelectOption => !!o);
+        const newOptions = isDeselect
+          ? selectedOptions.filter((o) => o.value !== option.value)
+          : [...selectedOptions, option];
 
         (onChange as RQSelectMultipleProps["onChange"])?.(
           newValues,
           newOptions,
         );
+        setSearch("");
+        debouncedSetSearch("");
+        searchInputRef.current?.focus();
       } else {
         const isDeselect = value === option.value;
         (onChange as RQSelectSingleProps["onChange"])?.(
@@ -195,7 +207,7 @@ function RQSelect({
         debouncedSetSearch("");
       }
     },
-    [multiple, value, onChange, resolveValue, debouncedSetSearch],
+    [multiple, value, onChange, selectedOptions, debouncedSetSearch],
   );
 
   const handleRemove = useCallback(
@@ -204,12 +216,10 @@ function RQSelect({
       if (!multiple) return;
       const currentValues = (value as string[] | undefined) ?? [];
       const newValues = currentValues.filter((v) => v !== optionValue);
-      const newOptions = newValues
-        .map(resolveValue)
-        .filter((o): o is RQSelectOption => !!o);
+      const newOptions = selectedOptions.filter((o) => o.value !== optionValue);
       (onChange as RQSelectMultipleProps["onChange"])?.(newValues, newOptions);
     },
-    [multiple, value, onChange, resolveValue],
+    [multiple, value, onChange, selectedOptions],
   );
 
   const handleClear = useCallback(
@@ -242,7 +252,6 @@ function RQSelect({
     },
     [disabled, readOnly, hasBeenOpened, debouncedSetSearch],
   );
-
 
   const enabledIndices = useMemo(
     () =>
@@ -370,74 +379,158 @@ function RQSelect({
     </>
   );
 
+  const inputValue = searchable
+    ? open
+      ? search
+      : !multiple
+        ? (selectedOptions[0]?.label ?? "")
+        : ""
+    : "";
+
+  const inputPlaceholder = searchable
+    ? open
+      ? searchPlaceholder
+      : hasValue && !multiple
+        ? undefined
+        : placeholder
+    : undefined;
+
+  const handleInputFocus = useCallback(() => {
+    if (!open && !disabled && !readOnly) {
+      handleOpenChange(true);
+    }
+  }, [open, disabled, readOnly, handleOpenChange]);
+
+  const triggerContent = (
+    <>
+      <span data-slot="rqs-trigger-value" className={classNames?.triggerValue}>
+        {multiple &&
+          selectedOptions.length > 0 &&
+          selectedOptions.map((opt) => (
+            <span
+              key={opt.value}
+              data-slot="rqs-pill"
+              className={classNames?.pill}
+            >
+              {opt.label}
+              <button
+                type="button"
+                data-slot="rqs-pill-remove"
+                className={classNames?.pillRemove}
+                onClick={(e) => handleRemove(e, opt.value)}
+                aria-label={`Remove ${opt.label}`}
+                tabIndex={-1}
+              >
+                <XIcon />
+              </button>
+            </span>
+          ))}
+        {searchable ? (
+          <input
+            ref={searchInputRef}
+            type="text"
+            data-slot="rqs-search-input"
+            className={cn(
+              classNames?.searchInput,
+              multiple && !open && selectedOptions.length > 0 && "sr-only",
+            )}
+            placeholder={
+              multiple && selectedOptions.length > 0
+                ? undefined
+                : inputPlaceholder
+            }
+            value={inputValue}
+            onChange={handleSearchChange}
+            onKeyDown={handleKeyDown}
+            onFocus={handleInputFocus}
+            disabled={disabled}
+            readOnly={readOnly}
+            aria-label={searchPlaceholder}
+            aria-activedescendant={
+              focusedIndex >= 0
+                ? `rqs-option-${options[focusedIndex]?.value}`
+                : undefined
+            }
+            aria-expanded={open}
+            role="combobox"
+            autoComplete="off"
+          />
+        ) : !multiple ? (
+          selectedOptions[0]?.label || (
+            <span
+              data-slot="rqs-placeholder"
+              className={classNames?.placeholder}
+            >
+              {placeholder}
+            </span>
+          )
+        ) : !selectedOptions.length ? (
+          <span data-slot="rqs-placeholder" className={classNames?.placeholder}>
+            {placeholder}
+          </span>
+        ) : null}
+      </span>
+      {clearable && hasValue && !disabled && !readOnly && (
+        <button
+          type="button"
+          data-slot="rqs-clear"
+          className={classNames?.clear}
+          onClick={handleClear}
+          aria-label="Clear selection"
+          tabIndex={-1}
+        >
+          <XIcon />
+        </button>
+      )}
+      {isInitialLoading || isResolvingOptions || optionsQuery.isFetching ? (
+        <Loader2Icon
+          data-slot="rqs-spinner"
+          className={cn(classNames?.spinner, classNames?.triggerIcon)}
+        />
+      ) : (
+        <ChevronDownIcon
+          data-slot="rqs-trigger-icon"
+          className={classNames?.triggerIcon}
+          onClick={
+            searchable && open
+              ? (e) => {
+                  e.stopPropagation();
+                  handleOpenChange(false);
+                }
+              : undefined
+          }
+        />
+      )}
+    </>
+  );
+
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
       <PopoverPrimitive.Trigger asChild disabled={disabled}>
         <button
           type="button"
+          ref={triggerRef}
           data-slot="rqs-trigger"
-          data-placeholder={!hasValue ? "" : undefined}
+          data-placeholder={!hasValue && !search ? "" : undefined}
           className={cn(classNames?.trigger, className)}
           disabled={disabled}
           aria-expanded={open}
           data-multiple={multiple}
+          data-has-value={hasValue}
+          onClick={
+            searchable
+              ? (e) => {
+                  e.preventDefault();
+                  if (readOnly) return;
+                  if (!open) {
+                    handleOpenChange(true);
+                    searchInputRef.current?.focus();
+                  }
+                }
+              : undefined
+          }
         >
-          <span
-            data-slot="rqs-trigger-value"
-            className={classNames?.triggerValue}
-          >
-            {multiple && resolvedOptions.length > 0
-              ? resolvedOptions.map((opt) => (
-                  <span
-                    key={opt.value}
-                    data-slot="rqs-pill"
-                    className={classNames?.pill}
-                  >
-                    {opt.label}
-                    <button
-                      type="button"
-                      data-slot="rqs-pill-remove"
-                      className={classNames?.pillRemove}
-                      onClick={(e) => handleRemove(e, opt.value)}
-                      aria-label={`Remove ${opt.label}`}
-                      tabIndex={-1}
-                    >
-                      <XIcon />
-                    </button>
-                  </span>
-                ))
-              : resolvedOptions[0]?.label || (
-                  <span
-                    data-slot="rqs-placeholder"
-                    className={classNames?.placeholder}
-                  >
-                    {placeholder}
-                  </span>
-                )}
-          </span>
-          {clearable && hasValue && !disabled && !readOnly && (
-            <button
-              type="button"
-              data-slot="rqs-clear"
-              className={classNames?.clear}
-              onClick={handleClear}
-              aria-label="Clear selection"
-              tabIndex={-1}
-            >
-              <XIcon />
-            </button>
-          )}
-          {isInitialLoading || isResolvingOptions || optionsQuery.isFetching ? (
-            <Loader2Icon
-              data-slot="rqs-spinner"
-              className={cn(classNames?.spinner, classNames?.triggerIcon)}
-            />
-          ) : (
-            <ChevronDownIcon
-              data-slot="rqs-trigger-icon"
-              className={classNames?.triggerIcon}
-            />
-          )}
+          {triggerContent}
         </button>
       </PopoverPrimitive.Trigger>
 
@@ -456,108 +549,94 @@ function RQSelect({
           }}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
-            if (searchable) {
-              searchInputRef.current?.focus();
-            } else {
+            if (!searchable) {
               listRef.current?.focus();
             }
           }}
         >
-          <RemoveScroll allowPinchZoom className="flex flex-col flex-1 overflow-hidden">
-          {searchable && (
-            <div
-              data-slot="rqs-search-wrapper"
-              className={classNames?.searchWrapper}
-            >
-              <SearchIcon
-                data-slot="rqs-search-icon"
-                className={classNames?.searchIcon}
-              />
-              <input
-                ref={searchInputRef}
-                type="text"
-                data-slot="rqs-search-input"
-                className={classNames?.searchInput}
-                placeholder={searchPlaceholder}
-                value={search}
-                onChange={handleSearchChange}
-                onKeyDown={handleKeyDown}
-                aria-label={searchPlaceholder}
-                aria-activedescendant={
-                  focusedIndex >= 0
-                    ? `rqs-option-${options[focusedIndex]?.value}`
-                    : undefined
-                }
-              />
-            </div>
-          )}
-
-          <ScrollAreaPrimitive.Root
-            type="always"
-            data-slot="rqs-scroll-area"
-            className={cn(
-              "relative flex flex-col flex-1 overflow-hidden",
-              classNames?.scrollArea,
-            )}
+          <RemoveScroll
+            allowPinchZoom
+            className="flex flex-col flex-1 overflow-hidden"
           >
-            <ScrollAreaPrimitive.Viewport
+            <ScrollAreaPrimitive.Root
+              type="always"
+              data-slot="rqs-scroll-area"
               className={cn(
-                "size-full rounded-[inherit]",
-                classNames?.scrollAreaViewport,
+                "relative flex flex-col flex-1 overflow-hidden",
+                classNames?.scrollArea,
               )}
             >
-              <div
-                ref={listRef}
-                role="listbox"
-                aria-label="Options"
-                aria-multiselectable={multiple || undefined}
-                data-slot="rqs-list"
-                className={classNames?.list}
-                {...(!searchable && { onKeyDown: handleKeyDown, tabIndex: 0 })}
-              >
-                {isInitialLoading && (
-                  <div data-slot="rqs-message" className={classNames?.message}>
-                    <Loader2Icon
-                      data-slot="rqs-spinner"
-                      className={cn(classNames?.spinner, "animate-spin")}
-                    />
-                    {loadingMessage}
-                  </div>
-                )}
-
-                {showError && (
-                  <div data-slot="rqs-message" className={classNames?.message}>
-                    {errorMessage}
-                  </div>
-                )}
-
-                {showEmpty && (
-                  <div data-slot="rqs-message" className={classNames?.message}>
-                    {emptyMessage}
-                  </div>
-                )}
-
-                {showItems && options.map((option, i) => renderItem(option, i))}
-
-                {showItems && sentinel}
-              </div>
-            </ScrollAreaPrimitive.Viewport>
-            <ScrollAreaPrimitive.Scrollbar
-              orientation="vertical"
-              className={cn(
-                "flex touch-none p-px transition-colors select-none h-full w-2.5 border-l border-l-transparent",
-                classNames?.scrollAreaScrollbar,
-              )}
-            >
-              <ScrollAreaPrimitive.Thumb
+              <ScrollAreaPrimitive.Viewport
                 className={cn(
-                  "bg-foreground/40 relative flex-1 rounded-full",
-                  classNames?.scrollAreaThumb,
+                  "size-full rounded-[inherit]",
+                  classNames?.scrollAreaViewport,
                 )}
-              />
-            </ScrollAreaPrimitive.Scrollbar>
-            <ScrollAreaPrimitive.Corner />
-          </ScrollAreaPrimitive.Root>
+              >
+                <div
+                  ref={listRef}
+                  role="listbox"
+                  aria-label="Options"
+                  aria-multiselectable={multiple || undefined}
+                  data-slot="rqs-list"
+                  className={classNames?.list}
+                  {...(!searchable && {
+                    onKeyDown: handleKeyDown,
+                    tabIndex: 0,
+                  })}
+                >
+                  {isInitialLoading && (
+                    <div
+                      data-slot="rqs-message"
+                      className={classNames?.message}
+                    >
+                      <Loader2Icon
+                        data-slot="rqs-spinner"
+                        className={cn(classNames?.spinner, "animate-spin")}
+                      />
+                      {loadingMessage}
+                    </div>
+                  )}
+
+                  {showError && (
+                    <div
+                      data-slot="rqs-message"
+                      className={classNames?.message}
+                    >
+                      {errorMessage}
+                    </div>
+                  )}
+
+                  {showEmpty && (
+                    <div
+                      data-slot="rqs-message"
+                      className={classNames?.message}
+                    >
+                      {emptyMessage}
+                    </div>
+                  )}
+
+                  {showItems &&
+                    options.map((option, i) => renderItem(option, i))}
+
+                  {showItems && sentinel}
+                </div>
+              </ScrollAreaPrimitive.Viewport>
+              <ScrollAreaPrimitive.Scrollbar
+                orientation="vertical"
+                className={cn(
+                  "flex touch-none p-px transition-colors select-none h-full w-2.5 border-l border-l-transparent",
+                  classNames?.scrollAreaScrollbar,
+                )}
+              >
+                <ScrollAreaPrimitive.Thumb
+                  className={cn(
+                    "bg-foreground/40 relative flex-1 rounded-full",
+                    classNames?.scrollAreaThumb,
+                  )}
+                />
+              </ScrollAreaPrimitive.Scrollbar>
+              <ScrollAreaPrimitive.Corner />
+            </ScrollAreaPrimitive.Root>
           </RemoveScroll>
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>
