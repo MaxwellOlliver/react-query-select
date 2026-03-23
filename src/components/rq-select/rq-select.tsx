@@ -463,7 +463,7 @@ function RQSelect({
             }
           }}
         >
-          <RemoveScroll allowPinchZoom>
+          <RemoveScroll allowPinchZoom className="flex flex-col flex-1 overflow-hidden">
           {searchable && (
             <div
               data-slot="rqs-search-wrapper"
