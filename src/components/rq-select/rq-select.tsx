@@ -242,6 +242,13 @@ function RQSelect({
     [disabled, readOnly, hasBeenOpened, debouncedSetSearch],
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const onScroll = () => handleOpenChange(false);
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => window.removeEventListener("scroll", onScroll, { capture: true });
+  }, [open, handleOpenChange]);
+
   const enabledIndices = useMemo(
     () =>
       options.reduce<number[]>((acc, opt, i) => {
