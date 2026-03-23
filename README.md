@@ -2,6 +2,8 @@
 
 A React select component that uses [React Query](https://tanstack.com/query) to fetch options asynchronously. Supports server-side search, infinite scrolling, and initial value resolution by ID.
 
+[Live Demo](https://maxwellolliver.github.io/react-query-select/)
+
 ## Features
 
 - **Async data fetching** — provide a `fetcher` function, options are loaded via React Query
