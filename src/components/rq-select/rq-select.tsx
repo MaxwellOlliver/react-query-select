@@ -10,7 +10,7 @@ import {
   XIcon,
 } from "lucide-react";
 import debounce from "lodash.debounce";
-import { cn } from "../lib/cn";
+import { cn } from "../../lib/cn";
 import type {
   RQSelectMultipleProps,
   RQSelectOption,
@@ -243,23 +243,20 @@ function RQSelect({
   );
 
   const enabledIndices = useMemo(
-    () => options.reduce<number[]>((acc, opt, i) => {
-      if (!opt.disabled) acc.push(i);
-      return acc;
-    }, []),
+    () =>
+      options.reduce<number[]>((acc, opt, i) => {
+        if (!opt.disabled) acc.push(i);
+        return acc;
+      }, []),
     [options],
   );
 
-  const moveFocus = useCallback(
-    (index: number) => {
-      setFocusedIndex(index);
-      const items = listRef.current?.querySelectorAll<HTMLElement>(
-        "[role='option']",
-      );
-      items?.[index]?.scrollIntoView({ block: "nearest" });
-    },
-    [],
-  );
+  const moveFocus = useCallback((index: number) => {
+    setFocusedIndex(index);
+    const items =
+      listRef.current?.querySelectorAll<HTMLElement>("[role='option']");
+    items?.[index]?.scrollIntoView({ block: "nearest" });
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -270,7 +267,11 @@ function RQSelect({
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          moveFocus(enabledIndices[pos < 0 ? 0 : Math.min(pos + 1, enabledIndices.length - 1)]);
+          moveFocus(
+            enabledIndices[
+              pos < 0 ? 0 : Math.min(pos + 1, enabledIndices.length - 1)
+            ],
+          );
           break;
         case "ArrowUp":
           e.preventDefault();
@@ -296,7 +297,15 @@ function RQSelect({
           break;
       }
     },
-    [showItems, enabledIndices, options, focusedIndex, moveFocus, handleSelect, handleOpenChange],
+    [
+      showItems,
+      enabledIndices,
+      options,
+      focusedIndex,
+      moveFocus,
+      handleSelect,
+      handleOpenChange,
+    ],
   );
 
   const isSelected = useCallback(
@@ -395,7 +404,14 @@ function RQSelect({
                     </button>
                   </span>
                 ))
-              : resolvedOptions[0]?.label || placeholder}
+              : resolvedOptions[0]?.label || (
+                  <span
+                    data-slot="rqs-placeholder"
+                    className={classNames?.placeholder}
+                  >
+                    {placeholder}
+                  </span>
+                )}
           </span>
           {clearable && hasValue && !disabled && !readOnly && (
             <button
@@ -465,7 +481,9 @@ function RQSelect({
                 onKeyDown={handleKeyDown}
                 aria-label={searchPlaceholder}
                 aria-activedescendant={
-                  focusedIndex >= 0 ? `rqs-option-${options[focusedIndex]?.value}` : undefined
+                  focusedIndex >= 0
+                    ? `rqs-option-${options[focusedIndex]?.value}`
+                    : undefined
                 }
               />
             </div>

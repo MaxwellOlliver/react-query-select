@@ -104,18 +104,19 @@
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: "Figtree", system-ui, -apple-system, sans-serif;
 }
 
 #root {
-  max-width: 400px;
+  max-width: 900px;
   margin: 40px auto;
-  padding: 0 16px;
+  padding: 0 24px;
 }
 
 html {
-  @apply bg-background text-foreground;
+  @apply bg-background text-foreground scroll-smooth;
+}
+
+[id] {
+  scroll-margin-top: 24px;
 }

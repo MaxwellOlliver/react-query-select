@@ -1,13 +1,13 @@
 @reference "./index.css";
 
 .rqs-trigger {
-  @apply flex min-w-0 w-full items-center justify-between outline-none select-none;
+  @apply flex min-w-0 max-w-72 w-full items-center justify-between outline-none select-none;
   @apply min-h-10 rounded-md border border-border bg-input px-3 py-1 text-base shadow-xs;
   @apply gap-2 transition-all duration-200;
   @apply dark:bg-input/30;
   @apply ring-primary focus:border-primary focus:ring-1;
   @apply aria-invalid:ring-danger dark:aria-invalid:ring-danger aria-invalid:border-danger;
-  @apply disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 data-multiple:pl-1;
+  @apply disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 data-multiple:pl-1 data-multiple:**:data-[slot="rqs-placeholder"]:pl-2;
 
   &:not([aria-invalid="true"]):not(:focus):hover {
     @apply border-foreground/15;

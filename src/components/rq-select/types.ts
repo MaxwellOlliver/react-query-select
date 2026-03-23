@@ -32,6 +32,7 @@ export type RQSelectClassNames = {
   itemCheckIcon?: string;
   pill?: string;
   pillRemove?: string;
+  placeholder?: string;
   clear?: string;
   spinner?: string;
 };

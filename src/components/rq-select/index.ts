@@ -8,4 +8,4 @@ export type {
   RQSelectProps,
   RQSelectSingleOptionFetcher,
   RQSelectSingleProps,
-} from "./rq-select";
+} from "./types";
