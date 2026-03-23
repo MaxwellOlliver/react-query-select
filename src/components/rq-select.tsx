@@ -46,12 +46,18 @@ function RQSelect({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [focusedIndex, setFocusedIndex] = useState(-1);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [sentinelNode, setSentinelNode] = useState<HTMLDivElement | null>(null);
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
 
   const debouncedSetSearch = useMemo(
-    () => debounce((val: string) => setDebouncedSearch(val), searchDebounceMs),
+    () =>
+      debounce((val: string) => {
+        setDebouncedSearch(val);
+        setFocusedIndex(-1);
+      }, searchDebounceMs),
     [searchDebounceMs],
   );
 
@@ -92,7 +98,6 @@ function RQSelect({
     return pages.flatMap((page) => page.options).filter((opt) => !opt.hidden);
   }, [pages]);
 
-  // Normalize value to array for unified resolution logic
   const values = useMemo(
     () => (multiple ? (value ?? []) : value ? [value] : []),
     [multiple, value],
@@ -100,13 +105,11 @@ function RQSelect({
 
   const hasValue = values.length > 0;
 
-  // Find values that aren't in the fetched options list and need resolving
   const valuesToResolve = useMemo(() => {
     if (!optionFetcher) return [];
     return values.filter((v) => !options.find((o) => o.value === v));
   }, [values, options, optionFetcher]);
 
-  // Resolve values not in the fetched options list
   const resolveQuery = useQuery({
     queryKey: ["rq-select-resolve", queryKey, ...valuesToResolve] as const,
     queryFn: async () => {
@@ -122,10 +125,8 @@ function RQSelect({
     refetchOnWindowFocus: false,
   });
 
-  // Build a lookup map from resolved query
   const resolvedFromQuery = resolveQuery.data;
 
-  // Resolve a single value to its full option
   const resolveValue = useCallback(
     (v: string) =>
       options.find((o) => o.value === v) ??
@@ -133,7 +134,6 @@ function RQSelect({
     [options, resolvedFromQuery],
   );
 
-  // Resolved options for current value(s)
   const resolvedOptions = useMemo(
     () => values.map(resolveValue).filter((o): o is RQSelectOption => !!o),
     [values, resolveValue],
@@ -223,6 +223,11 @@ function RQSelect({
     [multiple, onChange],
   );
 
+  const isInitialLoading = optionsQuery.isLoading;
+  const showError = optionsQuery.isError;
+  const showEmpty = !isInitialLoading && !showError && options.length === 0;
+  const showItems = !isInitialLoading && !showError && options.length > 0;
+
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (disabled || readOnly) return;
@@ -231,15 +236,68 @@ function RQSelect({
       if (!nextOpen) {
         setSearch("");
         debouncedSetSearch("");
+        setFocusedIndex(-1);
       }
     },
     [disabled, readOnly, hasBeenOpened, debouncedSetSearch],
   );
 
-  const isInitialLoading = optionsQuery.isLoading;
-  const showError = optionsQuery.isError;
-  const showEmpty = !isInitialLoading && !showError && options.length === 0;
-  const showItems = !isInitialLoading && !showError && options.length > 0;
+  const enabledIndices = useMemo(
+    () => options.reduce<number[]>((acc, opt, i) => {
+      if (!opt.disabled) acc.push(i);
+      return acc;
+    }, []),
+    [options],
+  );
+
+  const moveFocus = useCallback(
+    (index: number) => {
+      setFocusedIndex(index);
+      const items = listRef.current?.querySelectorAll<HTMLElement>(
+        "[role='option']",
+      );
+      items?.[index]?.scrollIntoView({ block: "nearest" });
+    },
+    [],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!showItems || enabledIndices.length === 0) return;
+
+      const pos = enabledIndices.indexOf(focusedIndex);
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          moveFocus(enabledIndices[pos < 0 ? 0 : Math.min(pos + 1, enabledIndices.length - 1)]);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          moveFocus(enabledIndices[pos <= 0 ? 0 : pos - 1]);
+          break;
+        case "Home":
+          e.preventDefault();
+          moveFocus(enabledIndices[0]);
+          break;
+        case "End":
+          e.preventDefault();
+          moveFocus(enabledIndices[enabledIndices.length - 1]);
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < options.length) {
+            handleSelect(options[focusedIndex]);
+          }
+          break;
+        case "Escape":
+          e.preventDefault();
+          handleOpenChange(false);
+          break;
+      }
+    },
+    [showItems, enabledIndices, options, focusedIndex, moveFocus, handleSelect, handleOpenChange],
+  );
 
   const isSelected = useCallback(
     (optionValue: string) =>
@@ -249,28 +307,25 @@ function RQSelect({
     [multiple, value],
   );
 
-  const renderItem = (option: RQSelectOption) => {
+  const renderItem = (option: RQSelectOption, index: number) => {
     const selected = isSelected(option.value);
+    const focused = index === focusedIndex;
     return (
       <div
         key={option.value}
         role="option"
         data-slot="rqs-item"
+        id={`rqs-option-${option.value}`}
         data-disabled={option.disabled || undefined}
+        data-focused={focused || undefined}
         aria-selected={selected}
         aria-disabled={option.disabled}
         className={classNames?.item}
         onClick={() => handleSelect(option)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleSelect(option);
-          }
-        }}
-        tabIndex={option.disabled ? -1 : 0}
+        onMouseEnter={() => setFocusedIndex(index)}
       >
         {renderOption ? (
-          renderOption(option, { selected })
+          renderOption(option, { selected, focused })
         ) : (
           <>
             {option.label}
@@ -383,7 +438,11 @@ function RQSelect({
           }}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
-            searchInputRef.current?.focus();
+            if (searchable) {
+              searchInputRef.current?.focus();
+            } else {
+              listRef.current?.focus();
+            }
           }}
         >
           {searchable && (
@@ -403,7 +462,11 @@ function RQSelect({
                 placeholder={searchPlaceholder}
                 value={search}
                 onChange={handleSearchChange}
+                onKeyDown={handleKeyDown}
                 aria-label={searchPlaceholder}
+                aria-activedescendant={
+                  focusedIndex >= 0 ? `rqs-option-${options[focusedIndex]?.value}` : undefined
+                }
               />
             </div>
           )}
@@ -423,11 +486,13 @@ function RQSelect({
               )}
             >
               <div
+                ref={listRef}
                 role="listbox"
                 aria-label="Options"
                 aria-multiselectable={multiple || undefined}
                 data-slot="rqs-list"
                 className={classNames?.list}
+                {...(!searchable && { onKeyDown: handleKeyDown, tabIndex: 0 })}
               >
                 {isInitialLoading && (
                   <div data-slot="rqs-message" className={classNames?.message}>
@@ -451,7 +516,7 @@ function RQSelect({
                   </div>
                 )}
 
-                {showItems && options.map((option) => renderItem(option))}
+                {showItems && options.map((option, i) => renderItem(option, i))}
 
                 {showItems && sentinel}
               </div>

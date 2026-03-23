@@ -98,8 +98,6 @@
 .rqs-item {
   @apply gap-2 rounded-md h-10 shrink-0 px-3 pr-8 text-base;
   @apply relative flex w-full cursor-default items-center outline-hidden select-none;
-  @apply focus-visible:bg-background-muted;
-
   @media (min-width: 768px) {
     @apply text-sm;
   }
@@ -108,7 +106,7 @@
     @apply pointer-events-none opacity-50;
   }
 
-  &:not([data-disabled="true"]):hover {
+  &[data-focused]:not([data-disabled="true"]) {
     @apply bg-background-muted;
   }
 

@@ -57,7 +57,7 @@ type RQSelectBaseProps = {
   classNames?: RQSelectClassNames;
 
   // Rendering
-  renderOption?: (option: RQSelectOption, state: { selected: boolean }) => React.ReactNode;
+  renderOption?: (option: RQSelectOption, state: { selected: boolean; focused: boolean }) => React.ReactNode;
 
   // Messages
   loadingMessage?: string;
