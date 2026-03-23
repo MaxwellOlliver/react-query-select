@@ -9,6 +9,7 @@ import {
   SearchIcon,
   XIcon,
 } from "lucide-react";
+import { RemoveScroll } from "react-remove-scroll";
 import debounce from "lodash.debounce";
 import { cn } from "../../lib/cn";
 import type {
@@ -242,12 +243,6 @@ function RQSelect({
     [disabled, readOnly, hasBeenOpened, debouncedSetSearch],
   );
 
-  useEffect(() => {
-    if (!open) return;
-    const onScroll = () => handleOpenChange(false);
-    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
-    return () => window.removeEventListener("scroll", onScroll, { capture: true });
-  }, [open, handleOpenChange]);
 
   const enabledIndices = useMemo(
     () =>
@@ -468,6 +463,7 @@ function RQSelect({
             }
           }}
         >
+          <RemoveScroll allowPinchZoom>
           {searchable && (
             <div
               data-slot="rqs-search-wrapper"
@@ -562,6 +558,7 @@ function RQSelect({
             </ScrollAreaPrimitive.Scrollbar>
             <ScrollAreaPrimitive.Corner />
           </ScrollAreaPrimitive.Root>
+          </RemoveScroll>
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>
